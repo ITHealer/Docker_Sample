@@ -1,0 +1,79 @@
+# Example cho việc kết nối container với MySQL container thay vì phải setup thủ công.
+# Dockerfile (Không khuyến nghị cho network):
+# Network tự động được tạo khi chạy docker-compose up 
+# Network tự động xoá khi chạy docker-compose down
+
+# # Khởi động
+# docker-compose up
+
+# # Dừng và xóa resources
+# docker-compose down
+
+# # Xem network được tạo
+# docker network ls
+
+version: '3.8'
+
+networks:
+  my-network:
+    driver: bridge
+
+services:
+  web:
+    build: .
+    networks:
+      - my-network
+    ports:
+      - "5000:5000"
+    environment:
+      # Kết nối DB bằng tên service 'db' thay vì localhost
+      DATABASE_URL: "postgresql://postgres:example@db:5432/mydatabase"
+      
+  db:
+    image: postgres
+    networks:
+      - my-network
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: mydatabase
+    # Port 5432 không cần expose ra host machine
+    # Vì web service có thể kết nối trực tiếp qua network
+
+
+#Request Flow:
+#    [Client] -> [Port 5000] -> [Web Container] -> [DB Container] -> [Response]
+
+# Code example:
+# from flask import Flask
+# import psycopg2
+# import os
+
+# app = Flask(__name__)
+
+# def get_db_connection():
+#     conn = psycopg2.connect(
+#         # Lấy connection string từ environment variable
+#         os.getenv('DATABASE_URL')
+#     )
+#     return conn
+
+# @app.route('/users')
+# def get_users():
+#     conn = get_db_connection()
+#     cur = conn.cursor()
+#     cur.execute('SELECT * FROM users;')
+#     users = cur.fetchall()
+#     cur.close()
+#     conn.close()
+#     return {"users": users}
+
+# if __name__ == '__main__':
+#     app.run(host='0.0.0.0', port=5000)
+
+# # Test
+# Khởi động
+# docker-compose up
+
+# Test API
+#curl http://localhost:5000/users
